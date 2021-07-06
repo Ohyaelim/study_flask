@@ -1,52 +1,58 @@
-from flask import Flask, render_template, request, redirect #render_template으로 html파일 렌더링
+import os #절대경로를 지정하기 위한 Os모듈 임포트
+from flask import Flask
+from flask import request #회원정보 제출했을때 받아오기 위한 request, post요청을 활성화시키기 위함
+from flask import redirect   #페이지 이동시키는 함수
+from flask import render_template
 from models import db
-import os
-from models import Fcuser
+from models import Fcuser #모델의 클래스 가져오기.
+
+from flask_wtf.csrf import CSRFProtect
+from forms import RegisterForm
+
 app = Flask(__name__)
 
+@app.route('/register', methods=['GET','POST'])  #겟, 포스트 메소드 둘다 사용
+def register():   #get 요청 단순히 페이지 표시 post요청 회원가입-등록을 눌렀을때 정보 가져오는것
+    form = RegisterForm()
+    if form.validate_on_submit(): # POST검사의 유효성검사가 정상적으로 되었는지 확인할 수 있다. 입력 안한것들이 있는지 확인됨.
+        #비밀번호 = 비밀번호 확인 -> EqulaTo
+    
+        fcuser = Fcuser()  #models.py에 있는 Fcuser 
+        fcuser.userid = form.data.get('userid')
+        fcuser.username = form.data.get('username')
+        fcuser.password = form.data.get('password')
+            
+        print(fcuser.userid,fcuser.password)  #회원가입 요청시 콘솔창에 ID만 출력 (확인용, 딱히 필요없음)
+        db.session.add(fcuser)  # id, name 변수에 넣은 회원정보 DB에 저장
+        db.session.commit()  #커밋
+        
+        return "가입 완료" #post요청일시는 '/'주소로 이동. (회원가입 완료시 화면이동)
+            
+    return render_template('register.html', form=form)
 @app.route('/')
 def hello():
-    return render_template("hello.html")
-#GET = 페이지가 나오도록 요청. POST = 버튼을 눌렀을때 데이터를 가지고오는 요청/ 요청정보확인하려면 request 임포트 필요
-@app.route('/register', methods=['GET','POST'])
-def register():
-    if request.method == 'GET':
-        return render_template("register.html")
-    else:
-        #회원정보 생성
-        userid = request.form.get('userid') 
-        username = request.form.get('username')
-        password = request.form.get('password')
-        re_password = request.form.get('re_password')
-        print(password) # 들어오나 확인해볼 수 있다. 
-
-
-        if not (userid and username and password and re_password) :
-            return "모두 입력해주세요"
-        elif password != re_password:
-            return "비밀번호를 확인해주세요"
-        else: #모두 입력이 정상적으로 되었다면 밑에명령실행(DB에 입력됨)
-            fcuser = Fcuser()         
-            fcuser.password = password           #models의 FCuser 클래스를 이용해 db에 입력한다.
-            fcuser.userid = userid
-            fcuser.username = username      
-            db.session.add(fcuser)
-            db.session.commit()
-            return "회원가입 완료"
-
-        return redirect('/')
+    return render_template('hello.html')    # 이번 포스팅에는 필요없음(지난포스팅꺼)
 
 if __name__ == "__main__":
-    basedir = os.path.abspath(os.path.dirname(__file__))  # database 경로를 절대경로로 설정함
-    dbfile = os.path.join(basedir, 'db.sqlite') # 데이터베이스 이름과 경로
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + dbfile
-    app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True     # 사용자에게 원하는 정보를 전달완료했을때가 TEARDOWN, 그 순간마다 COMMIT을 하도록 한다.라는 설정
-    #여러가지 쌓아져있던 동작들을 Commit을 해주어야 데이터베이스에 반영됨. 이러한 단위들은 트렌젝션이라고함.
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False   # True하면 warrnig메시지 유발, 
+    basedir = os.path.abspath(os.path.dirname(__file__)) #db파일을 절대경로로 생성
+    dbfile = os.path.join(basedir, 'db.sqlite')#db파일을 절대경로로 생성
 
-    db.init_app(app) #초기화 후 db.app에 app으로 명시적으로 넣어줌
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + dbfile   
+#sqlite를 사용함. (만약 mysql을 사용한다면, id password 등... 더 필요한게많다.)
+    app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True 
+#사용자 요청의 끝마다 커밋(데이터베이스에 저장,수정,삭제등의 동작을 쌓아놨던 것들의 실행명령)을 한다.
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False 
+#수정사항에 대한 track을 하지 않는다. True로 한다면 warning 메시지유발
+    app.config['SECRET_KEY'] = 'wcsfeufhwiquehfdx'
+
+    csrf = CSRFProtect()
+    csrf.init_app(app)
+
+    db.init_app(app)
     db.app = app
-    db.create_all()   # 이 명령이 있어야 생성됨. DB가
+    db.create_all()  #db 생성
 
 
+    
     app.run(host='127.0.0.1', port=5000, debug=True) 
+     #포트번호는 기본 5000, 개발단계에서는 debug는 True
