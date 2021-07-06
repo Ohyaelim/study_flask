@@ -4,10 +4,10 @@ from flask import request #회원정보 제출했을때 받아오기 위한 requ
 from flask import redirect   #페이지 이동시키는 함수
 from flask import render_template
 from models import db
-from models import Fcuser #모델의 클래스 가져오기.
-
+from models import Fcuser 
+from flask import session 
 from flask_wtf.csrf import CSRFProtect
-from forms import RegisterForm
+from forms import RegisterForm, LoginForm
 
 app = Flask(__name__)
 
@@ -25,13 +25,24 @@ def register():   #get 요청 단순히 페이지 표시 post요청 회원가입
         print(fcuser.userid,fcuser.password)  #회원가입 요청시 콘솔창에 ID만 출력 (확인용, 딱히 필요없음)
         db.session.add(fcuser)  # id, name 변수에 넣은 회원정보 DB에 저장
         db.session.commit()  #커밋
-        
         return "가입 완료" #post요청일시는 '/'주소로 이동. (회원가입 완료시 화면이동)
-            
     return render_template('register.html', form=form)
+
+@app.route('/login', methods=['GET','POST'])  
+def login():  
+    form = LoginForm() #로그인 폼 생성
+    if form.validate_on_submit(): #유효성 검사
+        session['userid'] = form.data.get('userid') #form에서 가져온 userid를 session에 저장
+    
+        
+        return redirect('/') #로그인에 성공하면 홈화면으로 redirect
+            
+    return render_template('login.html', form=form)
+
 @app.route('/')
 def hello():
-    return render_template('hello.html')    # 이번 포스팅에는 필요없음(지난포스팅꺼)
+    userid = session.get('userid', None)
+    return render_template('hello.html',userid=userid)    # 이번 포스팅에는 필요없음(지난포스팅꺼)
 
 if __name__ == "__main__":
     basedir = os.path.abspath(os.path.dirname(__file__)) #db파일을 절대경로로 생성
